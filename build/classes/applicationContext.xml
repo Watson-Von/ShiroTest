@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd">
+
+	<bean id="myService" class="com.xiaofong.shiro.spring.MyService" />
+
+	<!-- 配置 cacheManager -->
+	<bean id="cacheManager" class="org.apache.shiro.cache.ehcache.EhCacheManager">
+		<property name="cacheManagerConfigFile" value="classpath:ehcache.xml" />
+	</bean>
+
+	<!-- 配置 Realm 实例。以完成自定义的认证和授权 -->
+	<bean id="realm" class="com.xiaofong.shiro.spring.MyRealm">
+		<property name="credentialsMatcher">
+			<bean class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+				<property name="hashAlgorithmName" value="MD5" />
+				<property name="hashIterations" value="1024" />
+			</bean>
+		</property>
+	</bean>
+
+	<!-- 配置 SecurityManaer -->
+	<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+		<property name="cacheManager" ref="cacheManager" />
+		<property name="realm" ref="realm" />
+	</bean>
+
+	<!-- 配置 LifecycleBeanPostProcessor 实例。会自动调用 Shiro 的bean 的 init 和 destroy 方法 -->
+	<bean id="lifecycleBeanPostProcessor" class="org.apache.shiro.spring.LifecycleBeanPostProcessor" />
+
+	<!-- 启动 Shiro 注解的两个bean 。 注意：必须在配置 LifecycleBeanPostProcessor 的前提下使用 -->
+	<bean
+		class="org.springframework.aop.framework.autoproxy.DefaultAdvisorAutoProxyCreator"
+		depends-on="lifecycleBeanPostProcessor" />
+	<bean
+		class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+		<property name="securityManager" ref="securityManager" />
+	</bean>
+
+	<!-- 配置 WEB 环境下的 Shiro Filter !将制定哪些资源被拦截，哪个是登录页面，如何登出 -->
+	<bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+		<property name="securityManager" ref="securityManager" />
+		<!-- 配置登录页面 -->
+		<property name="loginUrl" value="/login.jsp" />
+		<!-- 配置没有权限访问时的相应页面 -->
+		<property name="unauthorizedUrl" value="/unauthorized.jsp" />
+		<!-- 配置哪些页面需要被拦截 -->
+		<property name="filterChainDefinitions">
+			<value>
+				# 匿名即可访问的资源
+				/login.jsp = anon
+				/shiro-login = anon
+
+				# 注意: URL 权限采取第一次匹配优先的方式;若将登出放在 /** = authc 后面，发现登出不好用
+				# 配置登出
+				/shiro-logout = logout
+
+				# 必须拥有指定的角色才可以访问相应资源
+				/admin.jsp = roles[admin]
+				/user.jsp = roles[user]
+
+				# 其他页面必须经过授权才可以访问
+				/** = authc
+
+			</value>
+		</property>
+	</bean>
+</beans>
